@@ -10,7 +10,6 @@ Globals:
   Function:
     Timeout: 3
     MemorySize: 128
-
     # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
     LoggingConfig:
       LogFormat: JSON
@@ -20,14 +19,28 @@ Resources:
     Properties:
       CodeUri: hello_world/
       Handler: app.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Architectures:
-      - x86_64
+        - x86_64
       Events:
         HelloWorld:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             Path: /hello
+            Method: get
+  CanaryTest:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: canary_test/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        CanaryTest:
+          Type: Api
+          Properties:
+            Path: /canary
             Method: get
 
 Outputs:
@@ -43,3 +56,12 @@ Outputs:
   HelloWorldFunctionIamRole:
     Description: Implicit IAM Role created for Hello World function
     Value: !GetAtt HelloWorldFunctionRole.Arn
+  CanaryTest:
+    Description: API Gateway endpoint URL for Prod stage for Canary Test function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/canary/"
+  CanaryTestFunction:
+    Description: Canary Test Lambda Function ARN
+    Value: !GetAtt CanaryTest.Arn
+  CanaryTestFunctionIamRole:
+    Description: Implicit IAM Role created for Canary Test function
+    Value: !GetAtt CanaryTestRole.Arn
