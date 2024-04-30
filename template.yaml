@@ -5,17 +5,16 @@ Description: >
 
   Sample SAM Template for sam-app
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
     MemorySize: 128
-    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
     LoggingConfig:
       LogFormat: JSON
+
 Resources:
   HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: hello_world/
       Handler: app.lambda_handler
@@ -24,11 +23,38 @@ Resources:
         - x86_64
       Events:
         HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             Path: /hello
             Method: get
-  CanaryTest:
+
+  CanaryTestApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  CanaryTestApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: canary_test_api/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        CanaryTestApiGateway:
+          Type: Api
+          Properties:
+            Path: /canary
+            Method: get
+            RestApiId: !Ref CanaryTestApiGateway
+
+  CanaryTestGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  CanaryTestFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: canary_test/
@@ -36,17 +62,18 @@ Resources:
       Runtime: python3.11
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          API_ENDPOINT: !Sub "https://${CanaryTestApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/canary/"
       Events:
-        CanaryTest:
+        CanaryTestGateway:
           Type: Api
           Properties:
             Path: /canary
             Method: get
+            RestApiId: !Ref CanaryTestGateway
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   HelloWorldApi:
     Description: API Gateway endpoint URL for Prod stage for Hello World function
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
@@ -56,12 +83,18 @@ Outputs:
   HelloWorldFunctionIamRole:
     Description: Implicit IAM Role created for Hello World function
     Value: !GetAtt HelloWorldFunctionRole.Arn
-  CanaryTest:
+  CanaryTestApiGateway:
+    Description: API Gateway endpoint URL for Prod stage for Canary Test API
+    Value: !Sub "https://${CanaryTestApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  CanaryTestGateway:
     Description: API Gateway endpoint URL for Prod stage for Canary Test function
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/canary/"
+    Value: !Sub "https://${CanaryTestGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
   CanaryTestFunction:
     Description: Canary Test Lambda Function ARN
-    Value: !GetAtt CanaryTest.Arn
+    Value: !GetAtt CanaryTestFunction.Arn
+  CanaryTestApiFunction:
+    Description: Canary Test Api Lambda Function ARN
+    Value: !GetAtt CanaryTestApiFunction.Arn
   CanaryTestFunctionIamRole:
     Description: Implicit IAM Role created for Canary Test function
-    Value: !GetAtt CanaryTestRole.Arn
+    Value: !GetAtt CanaryTestFunctionRole.Arn
